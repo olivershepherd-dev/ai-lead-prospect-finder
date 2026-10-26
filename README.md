@@ -2,7 +2,7 @@
 
 Finds local trade businesses, audits their websites, and uses AI to score each one as a sales lead, then logs everything to Google Sheets and emails a top-5 summary. Built in n8n for Synclo, an automation agency for Australian trade businesses.
 
-![Workflow](workflow.png)
+![Workflow](prospect-finder.png)
 
 ## How it works
 
