@@ -1,0 +1,1004 @@
+{
+  "name": "Synclo Prospect Finder",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "83aa245d-e5d6-4e1b-bbd7-617bc4db9dc0",
+      "name": "Run Manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SEARCH_QUEUE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Search Queue",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SEARCH_QUEUE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": 936841148,
+          "cachedResultName": "Untitled",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SEARCH_QUEUE_SHEET_ID/edit#gid=936841148"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "=status",
+              "lookupValue": "pending"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "id": "843ccfc3-2f16-488c-8088-4ed147aed3d3",
+      "name": "Get Pending Search",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        272,
+        224
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1PkWB6brUO7cwItJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://places.googleapis.com/v1/places:searchText",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpTemplatedCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Goog-FieldMask",
+              "value": "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.websiteUri,places.nationalPhoneNumber,places.googleMapsUri"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ textQuery: $json.trade + \" in \" + $json.suburb + \" VIC\", regionCode: \"AU\" }) }}",
+        "options": {}
+      },
+      "id": "a83d851a-5aa4-4847-bed8-8b3d0c84624a",
+      "name": "Search Google Places",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        336
+      ],
+      "credentials": {
+        "httpTemplatedCustomAuth": {
+          "id": "WnvOBZz32r8E6mKY",
+          "name": "Google Places API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "places",
+        "options": {}
+      },
+      "id": "6e117cef-611b-4dda-b1d9-dd334c483fe5",
+      "name": "Split Places",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        224
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "YOUR_LEADS_SHEET_ID",
+          "cachedResultName": "Synclo – Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_LEADS_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": 1656777253,
+          "cachedResultName": "Untitled",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_LEADS_SHEET_ID/edit#gid=1656777253"
+        },
+        "options": {}
+      },
+      "id": "e563c9b2-f90b-468b-952b-1c1e079822e4",
+      "name": "Read Existing Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        944,
+        224
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1PkWB6brUO7cwItJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const existing = new Set($('Read Existing Leads').all().map(i => String(i.json.place_id || '').trim()).filter(Boolean));\nconst search = $('Get Pending Search').first().json;\nreturn $('Split Places').all()\n  .filter(i => i.json.id && !existing.has(String(i.json.id)))\n  .map(i => ({ json: { ...i.json, search_trade: search.trade || '', search_suburb: search.suburb || '' } }));"
+      },
+      "id": "c5439762-d7ac-471b-8fab-c1046a20881c",
+      "name": "Remove Existing Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-website",
+              "leftValue": "={{ $json.websiteUri }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "1e6c1218-cc05-406f-bf6d-5438bd37cdab",
+      "name": "Has Website?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.websiteUri }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "fb7b7158-66ec-4b42-80c2-f9200b580fa2",
+      "name": "Fetch Website",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1024,
+        224
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const place = $('Has Website?').item.json;\nconst html = typeof $json.data === 'string' ? $json.data : '';\nconst lower = html.toLowerCase();\nconst text = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n  .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/&nbsp;/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim();\nconst has_booking = /book (online|now|a job|a service|an appointment)|online booking|booking|calendly|servicem8|simpro|tradify|housecallpro|acuity|setmore|schedule (a|an|your) (job|appointment|service)/.test(lower);\nconst has_chat = /intercom|drift\\.com|tawk\\.to|livechat|crisp\\.chat|zendesk|hubspot.*(chat|conversations)|tidio|olark|freshchat|messenger|whatsapp|podium|birdeye/.test(lower);\nconst has_form = /<form[\\s>]/.test(lower) || /contact-form|wpcf7|gravityforms|gform|typeform|jotform|formspree|hsforms/.test(lower);\nconst mobile_ready = /<meta[^>]+name=[\"']?viewport/.test(lower);\nconst mentions_24_7 = /24\\s*\\/\\s*7|24-7|24 hours|24hr|after[- ]hours|emergency/.test(lower);\nreturn { json: {\n  ...place,\n  no_website: false,\n  website_reachable: html.length > 0,\n  website_error: $json.error ? String($json.error.message || $json.error) : '',\n  has_booking, has_chat, has_form, mobile_ready, mentions_24_7,\n  text_sample: text.slice(0, 1500)\n} };"
+      },
+      "id": "db99f08e-a216-40e6-917d-9f75af70c9af",
+      "name": "Analyze Website",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "no-website",
+              "name": "no_website",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "af433570-178a-40f8-8b4c-f5e1114e02d9",
+      "name": "Mark No Website",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1248,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SEARCH_QUEUE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Search Queue",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SEARCH_QUEUE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 936841148,
+          "mode": "list",
+          "cachedResultName": "Untitled",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SEARCH_QUEUE_SHEET_ID/edit#gid=936841148"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Get Pending Search').first().json.row_number }}",
+            "status": "done"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "trade",
+              "displayName": "trade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "suburb",
+              "displayName": "suburb",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "ad937a82-4ea8-42a0-8564-e6638cc4a92a",
+      "name": "Mark Search Done",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        848,
+        496
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1PkWB6brUO7cwItJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "506ffb6a-45af-4bfd-a50d-46cf1bc58fec",
+      "name": "Weekdays 7am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        192
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "4b0466d7-46d6-4562-9de5-cc8ccb131c6e",
+      "name": "Merge Branches",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1472,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Qualify this Melbourne trade business as a sales lead for Synclo.\n\nBusiness: {{ $json.displayName ? $json.displayName.text : \"\" }}\nTrade searched: {{ $json.search_trade }} in {{ $json.search_suburb }}\nAddress: {{ $json.formattedAddress }}\nPhone: {{ $json.nationalPhoneNumber || \"none\" }}\nGoogle rating: {{ $json.rating || \"n/a\" }} from {{ $json.userRatingCount || 0 }} reviews\nWebsite: {{ $json.websiteUri || \"NONE\" }}\nNo website: {{ $json.no_website === true }}\nWebsite reachable: {{ $json.website_reachable }}\nOnline booking: {{ $json.has_booking }}\nLive chat: {{ $json.has_chat }}\nContact form: {{ $json.has_form }}\nMobile ready: {{ $json.mobile_ready }}\nMentions 24/7 or emergency: {{ $json.mentions_24_7 }}\nWebsite text sample: {{ $json.text_sample || \"(none)\" }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a sales analyst for Synclo, a Melbourne agency that helps trade businesses capture more jobs with automation (online booking, missed-call text-back, AI chat, lead follow-up, review requests). Score each business 1-10 on how strong a prospect it is: high scores = busy, well-reviewed businesses with clear gaps Synclo can fix (no booking, no chat, no website, weak mobile experience, 24/7 promise without after-hours capture). Return exactly 3 specific gaps, one recommended Synclo offer, and an opener: a casual, friendly SMS under 50 words from Ollie at Synclo that references something specific about the business. No emojis, no hard sell. Set confidence to low when you have little data (e.g. website unreachable or no reviews)."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "3574d736-c348-443c-884f-095fd0890435",
+      "name": "Score Lead",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1328,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5.4-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "6de0380c-e423-40c9-ad07-c65ca8cfc27e",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1344,
+        448
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "Gateway credits",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"score\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":10,\"description\":\"Lead quality score, 10 = best prospect for Synclo\"},\"gaps\":{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"minItems\":3,\"maxItems\":3,\"description\":\"Exactly 3 digital/customer-experience gaps\"},\"recommended_offer\":{\"type\":\"string\"},\"opener\":{\"type\":\"string\",\"description\":\"Casual SMS under 50 words from Ollie at Synclo\"},\"confidence\":{\"type\":\"string\",\"enum\":[\"high\",\"medium\",\"low\"]}},\"required\":[\"score\",\"gaps\",\"recommended_offer\",\"opener\",\"confidence\"]}"
+      },
+      "id": "ac673858-c19d-4969-946b-cce44a065577",
+      "name": "Lead Score Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1472,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "YOUR_LEADS_SHEET_ID",
+          "cachedResultName": "Synclo – Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_LEADS_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": 1656777253,
+          "cachedResultName": "Untitled",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_LEADS_SHEET_ID/edit#gid=1656777253"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "place_id": "={{ $('Merge Branches').item.json.id }}",
+            "business": "={{ $('Merge Branches').item.json.displayName ? $('Merge Branches').item.json.displayName.text : '' }}",
+            "trade": "={{ $('Merge Branches').item.json.search_trade }}",
+            "suburb": "={{ $('Merge Branches').item.json.search_suburb }}",
+            "address": "={{ $('Merge Branches').item.json.formattedAddress }}",
+            "phone": "={{ $('Merge Branches').item.json.nationalPhoneNumber || '' }}",
+            "website": "={{ $('Merge Branches').item.json.websiteUri || '' }}",
+            "rating": "={{ $('Merge Branches').item.json.rating || '' }}",
+            "reviews": "={{ $('Merge Branches').item.json.userRatingCount || 0 }}",
+            "google_maps_url": "={{ $('Merge Branches').item.json.googleMapsUri || '' }}",
+            "no_website": "={{ $('Merge Branches').item.json.no_website === true }}",
+            "has_booking": "={{ $('Merge Branches').item.json.has_booking === true }}",
+            "has_chat": "={{ $('Merge Branches').item.json.has_chat === true }}",
+            "has_form": "={{ $('Merge Branches').item.json.has_form === true }}",
+            "mobile_ready": "={{ $('Merge Branches').item.json.mobile_ready === true }}",
+            "mentions_24_7": "={{ $('Merge Branches').item.json.mentions_24_7 === true }}",
+            "score": "={{ $json.output.score }}",
+            "gaps": "={{ ($json.output.gaps || []).join(\" | \") }}",
+            "recommended_offer": "={{ $json.output.recommended_offer }}",
+            "opener": "={{ $json.output.opener }}",
+            "confidence": "={{ $json.output.confidence }}",
+            "status": "needs_review",
+            "date_added": "={{ $now.setZone(\"Australia/Melbourne\").toFormat(\"yyyy-MM-dd\") }}"
+          },
+          "schema": [
+            {
+              "id": "place_id",
+              "displayName": "place_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "business",
+              "displayName": "business",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "trade",
+              "displayName": "trade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "suburb",
+              "displayName": "suburb",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "address",
+              "displayName": "address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "website",
+              "displayName": "website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rating",
+              "displayName": "rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reviews",
+              "displayName": "reviews",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "google_maps_url",
+              "displayName": "google_maps_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "no_website",
+              "displayName": "no_website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "has_booking",
+              "displayName": "has_booking",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "has_chat",
+              "displayName": "has_chat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "has_form",
+              "displayName": "has_form",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mobile_ready",
+              "displayName": "mobile_ready",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mentions_24_7",
+              "displayName": "mentions_24_7",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gaps",
+              "displayName": "gaps",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recommended_offer",
+              "displayName": "recommended_offer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "opener",
+              "displayName": "opener",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date_added",
+              "displayName": "date_added",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "853bf9e1-9b1e-4abd-aea0-a09c1fa59e71",
+      "name": "Append to Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1680,
+        224
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1PkWB6brUO7cwItJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const places = $('Merge Branches').all().map(i => i.json);\nconst scores = $('Score Lead').all().map(i => i.json.output || {});\nconst search = $('Get Pending Search').first().json;\nconst esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst leads = places.map((p, idx) => ({ p, s: scores[idx] || {} }))\n  .sort((a, b) => (Number(b.s.score) || 0) - (Number(a.s.score) || 0));\nconst top = leads.slice(0, 5);\nlet html = '<h2>Synclo Prospect Finder: ' + esc(search.trade) + ' in ' + esc(search.suburb) + '</h2>';\nhtml += '<p>' + leads.length + ' new leads added to the Leads sheet (status: needs_review). Top ' + top.length + ' by score:</p><ol>';\nfor (const { p, s } of top) {\n  const name = p.displayName ? p.displayName.text : 'Unknown';\n  html += '<li><b>' + esc(name) + '</b> - score ' + esc(s.score) + '/10 (' + esc(s.confidence) + ' confidence)<br>';\n  html += esc(p.formattedAddress) + ' | ' + esc(p.nationalPhoneNumber || 'no phone') + ' | ' + (p.websiteUri ? '<a href=\"' + esc(p.websiteUri) + '\">website</a>' : 'no website') + ' | rating ' + esc(p.rating || 'n/a') + ' (' + esc(p.userRatingCount || 0) + ')<br>';\n  html += '<i>Gaps:</i> ' + esc((s.gaps || []).join('; ')) + '<br>';\n  html += '<i>Offer:</i> ' + esc(s.recommended_offer) + '<br>';\n  html += '<i>Opener:</i> ' + esc(s.opener) + '</li>';\n}\nhtml += '</ol>';\nreturn [{ json: { subject: 'Synclo leads: top ' + top.length + ' ' + (search.trade || '') + ' in ' + (search.suburb || ''), html, total_new: leads.length } }];"
+      },
+      "id": "dfe515b5-e8b3-438d-b0ed-c4d8b7d89db0",
+      "name": "Build Top 5 Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2128,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_EMAIL@example.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "e17d10fe-00f5-48c0-b053-9c0095199629",
+      "name": "Email Summary",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2352,
+        224
+      ],
+      "webhookId": "6224c991-639f-4228-9d1a-2435f66d229f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Px77mObt8PlaFcJN",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run Manually": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Search": {
+      "main": [
+        [
+          {
+            "node": "Search Google Places",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Google Places": {
+      "main": [
+        [
+          {
+            "node": "Split Places",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mark Search Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Places": {
+      "main": [
+        [
+          {
+            "node": "Read Existing Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Existing Leads": {
+      "main": [
+        [
+          {
+            "node": "Remove Existing Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Existing Leads": {
+      "main": [
+        [
+          {
+            "node": "Has Website?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Website?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Website",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark No Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Website": {
+      "main": [
+        [
+          {
+            "node": "Analyze Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Website": {
+      "main": [
+        [
+          {
+            "node": "Merge Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark No Website": {
+      "main": [
+        [
+          {
+            "node": "Merge Branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Weekdays 7am": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Branches": {
+      "main": [
+        [
+          {
+            "node": "Score Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Lead": {
+      "main": [
+        [
+          {
+            "node": "Append to Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Score Lead",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Score Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Score Lead",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Leads": {
+      "main": [
+        [
+          {
+            "node": "Build Top 5 Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Top 5 Summary": {
+      "main": [
+        [
+          {
+            "node": "Email Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "YOUR_ERROR_WORKFLOW_ID",
+    "timezone": "Australia/Sydney"
+  },
+  "versionId": "c07b5b8d-3736-4e55-99d7-571b800f021a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "485f010f49721bb82bf78417387aec0836e1f7d9a8b9a25e961d6d888887edff"
+  },
+  "nodeGroups": [
+    {
+      "id": "77ab9359-94cf-4fb4-aa94-79cf8a63ba17",
+      "name": "Find new prospects",
+      "nodeIds": [
+        "843ccfc3-2f16-488c-8088-4ed147aed3d3",
+        "a83d851a-5aa4-4847-bed8-8b3d0c84624a",
+        "6e117cef-611b-4dda-b1d9-dd334c483fe5",
+        "e563c9b2-f90b-468b-952b-1c1e079822e4",
+        "c5439762-d7ac-471b-8fab-c1046a20881c",
+        "ad937a82-4ea8-42a0-8564-e6638cc4a92a"
+      ],
+      "description": "Takes the next pending trade + suburb, searches Google Maps, and drops businesses already in the Leads sheet"
+    },
+    {
+      "id": "63eda3e6-a1c0-4318-bd4e-55d016fdfe46",
+      "name": "Audit their websites",
+      "nodeIds": [
+        "1e6c1218-cc05-406f-bf6d-5438bd37cdab",
+        "fb7b7158-66ec-4b42-80c2-f9200b580fa2",
+        "db99f08e-a216-40e6-917d-9f75af70c9af",
+        "af433570-178a-40f8-8b4c-f5e1114e02d9",
+        "4b0466d7-46d6-4562-9de5-cc8ccb131c6e"
+      ],
+      "description": "Checks each site for booking, chat, forms, mobile and 24/7 signals; flags businesses with no website"
+    },
+    {
+      "id": "3d66460c-0490-4fae-a0e7-e3a262ed967a",
+      "name": "Score, save and report",
+      "nodeIds": [
+        "3574d736-c348-443c-884f-095fd0890435",
+        "6de0380c-e423-40c9-ad07-c65ca8cfc27e",
+        "ac673858-c19d-4969-946b-cce44a065577",
+        "853bf9e1-9b1e-4abd-aea0-a09c1fa59e71",
+        "dfe515b5-e8b3-438d-b0ed-c4d8b7d89db0",
+        "e17d10fe-00f5-48c0-b053-9c0095199629"
+      ],
+      "description": "AI scores each lead and writes an SMS opener, saves to Leads for review, closes the search, emails the top 5"
+    }
+  ],
+  "id": "6DWRr39N01kD0kKa",
+  "tags": []
+}
